@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>買家結單小邦手</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<style>
+:root{
+    --paper:#f5f2ea; 
+    --paper-2:#efeadd;  
+    --ink:#002d62;     
+    --ink-soft:#466289;   
+    --line:#d8d2c0;    
+    --stamp:#0050a0; 
+    --stamp-dark:#002d62; 
+    --stamp-soft:#e6f0fa;
+    --warn:#b23a2e;    
+    --chip:#ffffff;   
+    --shadow: 0 1px 0 rgba(0,45,98,0.06);
+    --radius: 10px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'IBM Plex Sans', system-ui, sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{
+    max-width:960px;
+    margin:0 auto;
+    padding:40px 24px 80px;
+  }
+  header.top{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:24px;
+    border-bottom:2px solid var(--ink);
+    padding-bottom:20px;
+    margin-bottom:32px;
+  }
+  header.top .title-block h1{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:26px;
+    font-weight:700;
+    margin:0 0 6px;
+    letter-spacing:-0.02em;
+  }
+  header.top .title-block p{
+    margin:0;
+    color:var(--ink-soft);
+    font-size:14px;
+    max-width:46ch;
+    line-height:1.6;
+  }
+  .stamp-mark{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    font-weight:600;
+    letter-spacing:0.08em;
+    color:var(--stamp-dark);
+    border:1.5px solid var(--stamp-dark);
+    border-radius:999px;
+    padding:6px 14px;
+    white-space:nowrap;
+    transform:rotate(-3deg);
+    background:var(--stamp-soft);
+  }
+  section{margin-bottom:36px;}
+  .step-label{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    font-weight:600;
+    color:var(--stamp-dark);
+    letter-spacing:0.06em;
+    margin-bottom:10px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .step-label::before{
+    content:"";
+    width:18px;height:1px;
+    background:var(--stamp-dark);
+  }
+  .dropzone{
+    border:1.5px dashed var(--ink-soft);
+    border-radius:var(--radius);
+    background:var(--chip);
+    padding:28px;
+    text-align:center;
+    cursor:pointer;
+    transition:border-color .15s ease, background .15s ease;
+  }
+  .dropzone:hover, .dropzone.drag{
+    border-color:var(--stamp-dark);
+    background:var(--stamp-soft);
+  }
+  .dropzone input{display:none;}
+  .dropzone .dz-title{font-weight:600; font-size:15px; margin-bottom:4px;}
+  .dropzone .dz-sub{font-size:13px; color:var(--ink-soft);}
+
+  .file-list{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+    margin-top:16px;
+  }
+  .file-chip{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    background:var(--chip);
+    border:1px solid var(--line);
+    border-left:4px solid var(--stamp);
+    border-radius:6px;
+    padding:8px 10px 8px 12px;
+    font-size:13px;
+    box-shadow:var(--shadow);
+  }
+  .file-chip .name{font-weight:600; max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .file-chip .count{
+    font-family:'IBM Plex Mono', monospace;
+    color:var(--ink-soft);
+    font-size:12px;
+  }
+  .file-chip button{
+    border:none;
+    background:transparent;
+    color:var(--warn);
+    font-size:15px;
+    cursor:pointer;
+    line-height:1;
+    padding:0 2px;
+  }
+
+  .summary-bar{
+    display:flex;
+    gap:28px;
+    flex-wrap:wrap;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:13px;
+    background:var(--ink);
+    color:var(--paper);
+    border-radius:var(--radius);
+    padding:14px 18px;
+    margin-bottom:16px;
+  }
+  .summary-bar b{font-size:16px; display:block; font-family:'IBM Plex Mono', monospace;}
+  .summary-bar span{color:#b7bbc4; font-size:11px; letter-spacing:0.04em;}
+
+  .table-scroll{
+    max-height:420px;
+    overflow:auto;
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    background:var(--chip);
+  }
+  table.preview{
+    width:100%;
+    border-collapse:collapse;
+    font-size:13px;
+  }
+  table.preview thead th{
+    position:sticky; top:0;
+    background:var(--ink);
+    color:var(--paper);
+    text-align:left;
+    padding:10px 12px;
+    font-weight:600;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    letter-spacing:0.05em;
+    z-index:1;
+  }
+  table.preview td{
+    padding:9px 12px;
+    border-bottom:1px solid #eee6d6;
+    vertical-align:top;
+  }
+  table.preview td.name-cell{font-weight:600;}
+  table.preview tr.group-end td{
+    border-bottom:3px solid var(--ink);
+  }
+  table.preview a{color:var(--stamp-dark);}
+  .empty-hint{
+    padding:36px 12px;
+    text-align:center;
+    color:var(--ink-soft);
+    font-size:13px;
+  }
+
+  .copy-btn{
+    display:inline-flex;
+    align-items:center;
+    gap:4px;
+    margin-top:6px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10.5px;
+    font-weight:600;
+    letter-spacing:0.03em;
+    color:var(--stamp-dark);
+    background:var(--stamp-soft);
+    border:1px solid var(--stamp-dark);
+    border-radius:999px;
+    padding:3px 9px;
+    cursor:pointer;
+    white-space:nowrap;
+    transition:background .12s ease, color .12s ease;
+  }
+  .copy-btn:hover{ background:var(--stamp-dark); color:#fff; }
+  .copy-btn:active{ transform:translateY(1px); }
+
+  .action-row{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    margin-top:20px;
+    flex-wrap:wrap;
+  }
+  button.primary{
+    font-family:'IBM Plex Mono', monospace;
+    font-weight:600;
+    font-size:14px;
+    letter-spacing:0.02em;
+    background:var(--stamp);
+    color:#fff;
+    border:none;
+    border-radius:8px;
+    padding:13px 22px;
+    cursor:pointer;
+    transition:background .15s ease, transform .1s ease;
+  }
+  button.primary:hover:not(:disabled){background:var(--stamp-dark);}
+  button.primary:disabled{background:#c8c4b8; cursor:not-allowed;}
+  button.primary:active:not(:disabled){transform:translateY(1px);}
+
+  button.secondary{
+    font-family:'IBM Plex Mono', monospace;
+    font-weight:600;
+    font-size:13px;
+    letter-spacing:0.02em;
+    background:var(--chip);
+    color:var(--stamp-dark);
+    border:1.5px solid var(--stamp-dark);
+    border-radius:8px;
+    padding:12px 20px;
+    cursor:pointer;
+    transition:background .15s ease, color .15s ease;
+  }
+  button.secondary:hover:not(:disabled){ background:var(--stamp-dark); color:#fff; }
+  button.secondary:disabled{ border-color:#c8c4b8; color:#c8c4b8; cursor:not-allowed; }
+
+  .status-msg{font-size:13px; color:var(--ink-soft);}
+  .status-msg.err{color:var(--warn); font-weight:600;}
+  .status-msg.ok{color:var(--stamp-dark); font-weight:600;}
+
+  footer.note{
+    margin-top:48px;
+    border-top:1px solid var(--line);
+    padding-top:16px;
+    font-size:12px;
+    color:var(--ink-soft);
+    line-height:1.7;
+  }
+  footer.note b{color:var(--ink);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div class="title-block">
+      <h1>買家結單小邦手</h1>
+    </div>
+  </header>
+
+  <section>
+    <div class="step-label">STEP 1 — 上傳 CSV 檔案</div>
+    <div class="dropzone" id="dropzone">
+      <input type="file" id="fileInput" multiple accept=".csv">
+      <div class="dz-title">點擊選擇檔案，或把 CSV 拖曳到這裡</div>
+      <div class="dz-sub">把 小卡一鍵結單小幫手 生成的多份CSV檔案進行合併</div>
+    </div>
+    <div class="file-list" id="fileList"></div>
+  </section>
+
+  <section>
+    <div class="step-label">STEP 2 — 預覽 &amp; 產生總表</div>
+    <div class="summary-bar" id="summaryBar" style="display:none;">
+      <div><b id="statFiles">0</b><span>已上傳檔案</span></div>
+      <div><b id="statRows">0</b><span>總筆數</span></div>
+      <div><b id="statBuyers">0</b><span>買家人數</span></div>
+    </div>
+    <div class="table-scroll">
+      <table class="preview" id="previewTable">
+        <thead>
+          <tr>
+            <th style="width:18%">買家姓名</th>
+            <th style="width:20%">喊單內容</th>
+            <th style="width:18%">賣家回覆</th>
+            <th style="width:34%">商品文案</th>
+            <th style="width:10%">圖片</th>
+          </tr>
+        </thead>
+        <tbody id="previewBody">
+          <tr><td colspan="5" class="empty-hint">尚未上傳任何 CSV，上傳後這裡會顯示合併後的預覽哦</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="action-row">
+      <button class="primary" id="exportBtn" disabled>產生總表 Excel</button>
+      <span class="status-msg" id="statusMsg"></span>
+    </div>
+  </section>
+
+</div>
+
+<script>
+const REQUIRED_COLUMNS = ['買家姓名', '買家喊單內容', '賣家得標回覆', '原始發文商品文案', '圖片網址'];
+
+let loadedFiles = []; 
+let mergedGroups = []; 
+
+const fileInput = document.getElementById('fileInput');
+const dropzone = document.getElementById('dropzone');
+const fileListEl = document.getElementById('fileList');
+const previewBody = document.getElementById('previewBody');
+const summaryBar = document.getElementById('summaryBar');
+const statFiles = document.getElementById('statFiles');
+const statRows = document.getElementById('statRows');
+const statBuyers = document.getElementById('statBuyers');
+const exportBtn = document.getElementById('exportBtn');
+const statusMsg = document.getElementById('statusMsg');
+
+dropzone.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', e => handleFiles(e.target.files));
+
+['dragenter','dragover'].forEach(evt=>{
+  dropzone.addEventListener(evt, e=>{
+    e.preventDefault();
+    dropzone.classList.add('drag');
+  });
+});
+['dragleave','drop'].forEach(evt=>{
+  dropzone.addEventListener(evt, e=>{
+    e.preventDefault();
+    dropzone.classList.remove('drag');
+  });
+});
+
+dropzone.addEventListener('drop', e=>{
+  const files = Array.from(e.dataTransfer.files).filter(f => f.name.toLowerCase().endsWith('.csv'));
+  handleFiles(files);
+});
+
+function handleFiles(fileListInput){
+  const files = Array.from(fileListInput);
+  if(files.length === 0) return;
+
+  let pending = files.length;
+  files.forEach(file=>{
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      transformHeader: h => h.replace(/^\uFEFF/, '').trim(),
+      complete: (result)=>{
+        const rows = result.data.filter(r => (r['買家姓名'] || '').trim() !== '');
+        loadedFiles.push({ name: file.name, rows });
+        pending--;
+        if(pending === 0){
+          rebuildMerged();
+        }
+      },
+      error: (err)=>{
+        pending--;
+        statusMsg.textContent = `檔案「${file.name}」讀取失敗：${err}`;
+        statusMsg.className = 'status-msg err';
+      }
+    });
+  });
+  fileInput.value = '';
+}
+
+function removeFile(idx){
+  loadedFiles.splice(idx, 1);
+  rebuildMerged();
+}
+
+function renderFileList(){
+  fileListEl.innerHTML = '';
+  loadedFiles.forEach((f, idx)=>{
+    const chip = document.createElement('div');
+    chip.className = 'file-chip';
+    chip.innerHTML = `
+      <span class="name" title="${f.name}">${f.name}</span>
+      <span class="count">${f.rows.length} 筆</span>
+      <button aria-label="移除">×</button>
+    `;
+    chip.querySelector('button').addEventListener('click', ()=> removeFile(idx));
+    fileListEl.appendChild(chip);
+  });
+}
+
+function rebuildMerged(){
+  renderFileList();
+
+  const missingInfo = [];
+  loadedFiles.forEach(f=>{
+    if(f.rows.length > 0){
+      const keys = Object.keys(f.rows[0]);
+      const missing = REQUIRED_COLUMNS.filter(c => !keys.includes(c));
+      if(missing.length) missingInfo.push(`${f.name} 缺少欄位`);
+    }
+  });
+  if(missingInfo.length){
+    statusMsg.className = 'status-msg err';
+  } else {
+    statusMsg.textContent = '';
+    statusMsg.className = 'status-msg';
+  }
+
+  const groupMap = new Map();
+  const order = [];
+
+  loadedFiles.forEach(f=>{
+    f.rows.forEach(row=>{
+      const rawName = (row['買家姓名'] || '').trim();
+      if(!rawName) return;
+      if(!groupMap.has(rawName)){
+        const g = { name: rawName, items: [] };
+        groupMap.set(rawName, g);
+        order.push(rawName);
+      }
+      groupMap.get(rawName).items.push({
+        buyerName: rawName,
+        shout: row['買家喊單'] || '',
+        sellerReply: row['賣家回覆'] || '',
+        caption: row['發文文案'] || '',
+        imageUrl: row['圖片網址'] || ''
+      });
+    });
+  });
+
+  const sortedNames = order.sort((a,b)=> a.localeCompare(b, 'zh-Hant'));
+  mergedGroups = sortedNames.map(n => groupMap.get(n));
+
+  renderPreview();
+  updateSummary();
+
+  exportBtn.disabled = mergedGroups.length === 0;
+}
+
+function renderPreview(){
+  previewBody.innerHTML = '';
+
+  if(mergedGroups.length === 0){
+    previewBody.innerHTML = '<tr><td colspan="5" class="empty-hint">尚未上傳任何 CSV，上傳後這裡會顯示合併後的預覽。</td></tr>';
+    return;
+  }
+
+  mergedGroups.forEach((group, gIdx)=>{
+    group.items.forEach((item, i)=>{
+      const tr = document.createElement('tr');
+      if(i === group.items.length - 1) tr.classList.add('group-end');
+
+      const imgCell = item.imageUrl
+        ? `<a href="${escapeHtml(item.imageUrl)}" target="_blank" rel="noopener">查看圖片</a>`
+        : '';
+
+      const nameCellContent = i === 0
+        ? `${escapeHtml(item.buyerName)}<br><button class="copy-btn" data-group-idx="${gIdx}">複製訊息</button>`
+        : '';
+
+      tr.innerHTML = `
+        <td class="name-cell">${nameCellContent}</td>
+        <td>${escapeHtml(item.shout)}</td>
+        <td>${escapeHtml(item.sellerReply)}</td>
+        <td>${escapeHtml(item.caption)}</td>
+        <td>${imgCell}</td>
+      `;
+      previewBody.appendChild(tr);
+    });
+  });
+}
+
+function escapeHtml(str){
+  return String(str).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
+}
+
+function updateSummary(){
+  const totalRows = mergedGroups.reduce((sum,g)=> sum + g.items.length, 0);
+  if(loadedFiles.length === 0){
+    summaryBar.style.display = 'none';
+    return;
+  }
+  summaryBar.style.display = 'flex';
+  statFiles.textContent  = loadedFiles.length;
+  statRows.textContent   = totalRows;
+  statBuyers.textContent = mergedGroups.length;
+}
+
+function generateBuyerMessage(group){
+  const lines = [];
+  const multi = group.items.length > 1;
+
+  lines.push(`【結單確認】${group.name}`);
+  lines.push('─────────────');
+
+  group.items.forEach((item, idx)=>{
+    lines.push(multi ? `${idx + 1}. 喊單：${item.shout}` : `喊單：${item.shout}`);
+    if(item.sellerReply) lines.push(`得標備註：${item.sellerReply}`);
+    lines.push(`商品：${item.caption}`);
+    if(item.imageUrl) lines.push(`圖片：${item.imageUrl}`);
+    if(idx !== group.items.length - 1) lines.push('');
+  });
+
+  lines.push('─────────────');
+  lines.push('請確認以上品項，謝謝！');
+
+  return lines.join('\n');
+}
+
+async function copyText(text){
+  try{
+    await navigator.clipboard.writeText(text);
+    return true;
+  }catch(err){
+    try{
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      return true;
+    }catch(err2){
+      console.error(err2);
+      return false;
+    }
+  }
+}
+
+previewBody.addEventListener('click', async (e)=>{
+  const btn = e.target.closest('.copy-btn');
+  if(!btn) return;
+
+  const idx = Number(btn.dataset.groupIdx);
+  const group = mergedGroups[idx];
+  if(!group) return;
+
+  const ok = await copyText(generateBuyerMessage(group));
+  statusMsg.textContent = ok
+    ? `已複製「${group.name}」的確認訊息 ✓`
+    : '複製失敗，請手動選取文字複製';
+  statusMsg.className = ok ? 'status-msg ok' : 'status-msg err';
+});
+
+exportBtn.addEventListener('click', exportExcel);
+
+async function exportExcel(){
+  if(mergedGroups.length === 0) return;
+
+  exportBtn.disabled = true;
+  statusMsg.textContent = '產生中，請稍候…';
+  statusMsg.className = 'status-msg';
+
+  try{
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = '小卡結單合併小工具';
+    workbook.created = new Date();
+
+    const sheet = workbook.addWorksheet('總表', {
+      views: [{ state: 'frozen', ySplit: 1 }]
+    });
+
+    const headerRow = ['買家姓名', '買家喊單', '賣家回覆', '發文文案', '圖片網址'];
+    sheet.addRow(headerRow);
+
+    const header = sheet.getRow(1);
+    header.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    header.alignment = { vertical: 'middle', horizontal: 'center' };
+    header.eachCell(cell=>{
+      cell.fill = { type:'pattern', pattern:'solid', fgColor:{ argb: 'FF20242B' } };
+    });
+
+    sheet.columns = [
+      { width: 18 },
+      { width: 22 },
+      { width: 20 },
+      { width: 50 },
+      { width: 14 }
+    ];
+
+    const thickBottom = { style: 'thick', color: { argb: 'FF000000' } };
+
+    mergedGroups.forEach(group=>{
+      const startRowNum = sheet.rowCount + 1;
+
+      group.items.forEach(item=>{
+        const row = sheet.addRow([item.buyerName, item.shout, item.sellerReply, item.caption]);
+
+        const imgCell = row.getCell(5);
+        if(item.imageUrl){
+          imgCell.value = { text: '查看圖片', hyperlink: item.imageUrl };
+          imgCell.font = { color: { argb: 'FF204D43' }, underline: true };
+        }
+        row.alignment = { vertical: 'top', wrapText: true };
+      });
+
+      const endRowNum = sheet.rowCount;
+
+      if(endRowNum > startRowNum){
+        sheet.mergeCells(startRowNum, 1, endRowNum, 1);
+      }
+      const nameCell = sheet.getCell(startRowNum, 1);
+      nameCell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+      nameCell.font = { bold: true };
+
+      const lastRow = sheet.getRow(endRowNum);
+      for(let c = 1; c <= 5; c++){
+        const cell = lastRow.getCell(c);
+        cell.border = Object.assign({}, cell.border, { bottom: thickBottom });
+      }
+    });
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/octet-stream' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const today = new Date();
+    const dateStr = `${today.getFullYear()}${String(today.getMonth()+1).padStart(2,'0')}${String(today.getDate()).padStart(2,'0')}`;
+    
+    a.href = url;
+    a.download = `小卡結單總表_${dateStr}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+
+    statusMsg.textContent = '已下載總表 Excel ✓';
+    statusMsg.className = 'status-msg ok';
+  }catch(err){
+    console.error(err);
+    statusMsg.textContent = '產生失敗：' + err.message;
+    statusMsg.className = 'status-msg err';
+  }finally{
+    exportBtn.disabled = mergedGroups.length === 0;
+  }
+}
+</script>
+</body>
+</html>
